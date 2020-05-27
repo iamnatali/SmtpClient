@@ -10,8 +10,11 @@ import os
 class SmtpSender:
     def __init__(self):
         self.OK_init = True
-        self.host_addr = 'smtp.mail.ru'
-        self.port = 465
+        self.host_dict = {
+            "mail": ('smtp.mail.ru', 465),
+            "yandex": ('smtp.yandex.ru', 465),
+            "rambler": ('smtp.rambler.ru', 465)
+        }
         self.error_dict = {
             '1': "The server accepted a command, but no actions have been taken. A confirmation message is required.",
             '2': "The task was completed successfully by the server without any mistakes.",
@@ -19,6 +22,21 @@ class SmtpSender:
             '4': "A temporary failure occurred. If there are no changes while repeating the command, try again.",
             '5': "The server faces a critical error, and your command can't be handled."
         }
+        with open('user_data.txt', encoding='utf-8') as file:
+            parts = file.readlines()
+            if len(parts) == 2:
+                self.user_name = parts[0].replace('\n', '')
+                self.password = parts[1]
+            else:
+                self.OK_init = False
+                print("is is necesary to put e-mail and then password one per line in user_data.txt")
+        if self.OK_init:
+            host_name = SmtpSender.get_host_name(self.user_name)
+            try:
+                self.host_addr, self.port = self.host_dict[host_name]
+            except KeyError:
+                self.OK_init = False
+                print("unknown server "+host_name)
         with open('smtp_conf.txt', encoding='utf-8') as file:
             parts = file.readlines()
             self.targets = []
@@ -35,20 +53,18 @@ class SmtpSender:
                     self.theme = parts[1].replace('\n','')
                 if length == 3:
                     self.files = parts[2].split(" ")
-        with open('user_data.txt', encoding='utf-8') as file:
-            parts = file.readlines()
-            if len(parts) == 2:
-                self.user_name = parts[0].replace('\n', '')
-                self.password = parts[1]
-            else:
-                self.OK_init = False
-                print("is is necesary to put e-mail and then password one per line in user_data.txt")
+
+    @staticmethod
+    def get_host_name(email):
+        host_getter = re.compile(r'\.(.+?)@')
+        mo = re.search(host_getter, email[::-1])
+        return mo.group(1)[::-1]
 
     def check_error(self, res_str):
         first = res_str[0]
         print(self.error_dict[first])
+        print(res_str)
         if first != '4' and first != '5':
-            print(res_str)
             return True
         return False
 
